@@ -1,0 +1,18 @@
+# API 관련 라이브러리
+requests>=2.25.0
+
+# 데이터 처리 및 분석 라이브러리
+pandas>=1.2.0
+numpy>=1.19.0
+
+# 설정 파일 처리 라이브러리
+pyyaml>=5.4.0
+
+# 시각화 라이브러리
+matplotlib>=3.4.0
+
+# PDF 생성 라이브러리
+fpdf>=1.7.2
+
+# 한글 폰트 처리 (선택 사항)
+# 설치 방법: apt-get install fonts-nanum

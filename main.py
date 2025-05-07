@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from modules.api.naver_insight import query_data, query_multiple_data, get_timestamps_for_april_2024, get_recent_timestamps
 from modules.utils.logger import setup_logger
 from modules.utils.config_loader import load_all_configs
+from modules.reports.visualizer import MetricsVisualizer
 
 def fetch_recent_data(access_key, secret_key, cw_key, server_id, server_name, days=7):
     """
@@ -156,3 +157,103 @@ if __name__ == "__main__":
                 success_count += 1
     
     print(f"처리 완료. 성공 사이트: {success_count}, 실패 사이트: {len(sites) - success_count if not site_name else (0 if success_count > 0 else 1)}")
+
+def process_site(site_config):
+    """
+    사이트 설정을 처리하여 데이터 가져오기 및 시각화
+    """
+    logger = setup_logger()
+    
+    # 사이트 정보 추출
+    site_name = site_config.get('name', 'Unknown Site')
+    ncp_config = site_config.get('ncp', {})
+    servers = site_config.get('servers', [])
+    
+    # NCP 인증 정보
+    access_key = ncp_config.get('access_key')
+    secret_key = ncp_config.get('secret_key')
+    cw_key = ncp_config.get('cw_key')
+    
+    if not (access_key and secret_key and cw_key):
+        logger.error(f"사이트 '{site_name}'의 NCP 인증 정보가 불완전합니다.")
+        return False
+    
+    if not servers:
+        logger.warning(f"사이트 '{site_name}'에 등록된 서버가 없습니다.")
+        return False
+    
+    # 메트릭 정보 로드
+    metrics_config = load_all_configs().get('metrics', {})
+    metrics_info = metrics_config.get('metrics', [])
+    
+    # 시각화 도구 초기화
+    visualizer = MetricsVisualizer()
+    
+    success_count = 0
+    
+    # 각 서버에 대해 데이터 가져오기
+    for server in servers:
+        server_id = server.get('id')
+        server_name = server.get('name')
+        
+        if not (server_id and server_name):
+            logger.warning(f"서버 정보가 불완전합니다: {server}")
+            continue
+        
+        logger.info(f"사이트: {site_name}, 서버: {server_name} 데이터 처리 시작")
+        
+        # 메트릭 목록 - metrics.yaml에서 정의된 메트릭 키 사용
+        metric_keys = [metric.get('key') for metric in metrics_info if metric.get('key')]
+        
+        # 최근 일정 기간 시작/종료 타임스탬프
+        start_time, end_time = get_recent_timestamps(days=7)
+        
+        try:
+            # 여러 메트릭 데이터 한 번에 가져오기
+            result = query_multiple_data(
+                access_key=access_key,
+                secret_key=secret_key,
+                metrics=metric_keys,
+                dimension_key="vm_name",
+                dimension_value=server_name,
+                start_time=start_time,
+                end_time=end_time,
+                cw_key=cw_key,
+                interval="Min5",
+                aggregation="AVG"
+            )
+            
+            if result:
+                logger.info(f"데이터 조회 성공: {len(result)} 메트릭 데이터")
+                
+                # 1. 개별 메트릭 그래프 생성
+                graph_files = visualizer.visualize_all_metrics(
+                    site_name=site_name,
+                    server_name=server_name,
+                    metrics_data=result,
+                    metrics_info=metrics_info
+                )
+                
+                logger.info(f"생성된 그래프 파일: {len(graph_files)}개")
+                
+                # 2. 대시보드 생성 (모든 메트릭을 한 화면에 표시)
+                dashboard_file = visualizer.create_dashboard(
+                    site_name=site_name,
+                    server_name=server_name,
+                    metrics_data=result,
+                    metrics_info=metrics_info
+                )
+                
+                if dashboard_file:
+                    logger.info(f"대시보드 생성 완료: {dashboard_file}")
+                
+                success_count += 1
+                logger.info(f"서버 '{server_name}' 데이터 처리 및 시각화 완료")
+            else:
+                logger.error(f"서버 '{server_name}' 데이터 조회 실패")
+        
+        except Exception as e:
+            logger.error(f"서버 '{server_name}' 데이터 처리 중 오류 발생: {str(e)}")
+    
+    logger.info(f"사이트 '{site_name}' 처리 완료. 성공: {success_count}, 실패: {len(servers) - success_count}")
+    return success_count > 0
