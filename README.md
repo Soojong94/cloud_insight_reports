@@ -46,7 +46,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 특정 사이트만 데이터 조회
+특정 사이트만 데이터 조회
 
 
 python main.py site1
