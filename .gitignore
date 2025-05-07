@@ -1,0 +1,30 @@
+# Python 관련 파일
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 로그 파일
+logs/
+*.log
+
+# 가상환경
+venv/
+ENV/
+.env
+
+# IDE 설정 파일
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 설정 파일 (민감한 정보 포함)
+/config/*.yaml
+/config/*.yml
+/config/*.json
+
+# 예외 처리 (예: 기본 설정 템플릿은 포함)
+!/config/*.yaml.example
+
+# 출력 및 결과 파일
+/output/

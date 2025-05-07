@@ -1,0 +1,31 @@
+metrics:
+  - name: "CPU 사용률"
+    key: "CPUUtilization"
+    unit: "%"
+    threshold_warning: 70
+    threshold_critical: 90
+  - name: "메모리 사용률"
+    key: "MemoryUsage"
+    unit: "%"
+    threshold_warning: 80
+    threshold_critical: 95
+  - name: "디스크 읽기"
+    key: "DiskReadBytes"
+    unit: "Bytes"
+    threshold_warning: null
+    threshold_critical: null
+  - name: "디스크 쓰기"
+    key: "DiskWriteBytes"
+    unit: "Bytes"
+    threshold_warning: null
+    threshold_critical: null
+  - name: "네트워크 인바운드"
+    key: "NetworkInbound"
+    unit: "Bytes/sec"
+    threshold_warning: null
+    threshold_critical: null
+  - name: "네트워크 아웃바운드"
+    key: "NetworkOutbound"
+    unit: "Bytes/sec"
+    threshold_warning: null
+    threshold_critical: null

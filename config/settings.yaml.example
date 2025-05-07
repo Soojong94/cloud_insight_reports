@@ -1,0 +1,27 @@
+general:
+  log_level: "INFO"
+  output_dir: "output"
+  log_dir: "logs"
+
+report:
+  default_format: "A4"
+  default_margin: 0.5
+  default_font: "NanumGothic"
+  
+interval:
+  default: "Min5"
+  options:
+    - "Min1"
+    - "Min5"
+    - "Min30"
+    - "Hour2"
+    - "Day1"
+
+aggregation:
+  default: "AVG"
+  options:
+    - "AVG"
+    - "MAX"
+    - "MIN"
+    - "SUM"
+    - "COUNT"

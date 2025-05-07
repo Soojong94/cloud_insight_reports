@@ -1,0 +1,15 @@
+sites:
+  site1:
+    name: "사이트1"
+    kt_cloud:
+      username: "username@example.com"
+      password: "your_password"
+    ncp:
+      access_key: "your_access_key"
+      secret_key: "your_secret_key"
+      cw_key: "your_cw_key"
+    servers:
+      - id: "server-id-1"
+        name: "server-name-1"
+      - id: "server-id-2"
+        name: "server-name-2"
