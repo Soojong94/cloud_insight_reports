@@ -24,7 +24,7 @@ cd cloud_insight_reports
 pip install -r requirements.txt
 ```
 
-## 설정 방법
+설정 방법
 
 1. config 디렉토리의 예시 파일을 복사하여 실제 파일을 생성합니다:
    
@@ -58,7 +58,7 @@ python main.py site1
 python scheduled_reports.py
 ```
 
-## 프로젝트 구조
+프로젝트 구조
 
 - `config/`: 설정 파일 디렉토리
   - `settings.yaml`: 일반 설정
@@ -80,7 +80,7 @@ python scheduled_reports.py
 - `main.py`: 메인 실행 파일
 - `scheduled_reports.py`: 예약 보고서 실행 파일
 
-## 확장 방법
+확장 방법
 
 새로운 사이트나 서버를 추가하려면 `sites.yaml` 파일을 수정하면 됩니다. 형식은 다음과 같습니다:
 
