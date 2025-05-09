@@ -74,6 +74,37 @@ def set_korean_font():
     # 마이너스 기호 깨짐 방지
     plt.rcParams['axes.unicode_minus'] = False
 
+def generate_date_ticks(start_date, end_date):
+    """
+    시작 날짜부터 종료 날짜까지 일주일 간격으로 날짜 목록 생성
+    
+    Args:
+        start_date (datetime.date): 시작 날짜
+        end_date (datetime.date): 종료 날짜
+        
+    Returns:
+        list: 일주일 간격의 날짜 목록
+    """
+    date_list = []
+    
+    # 시작 날짜 추가
+    date_list.append(start_date)
+    
+    # 7일 간격으로 날짜 추가
+    current = start_date
+    while current < end_date:
+        # 다음 날짜는 7일 후
+        next_date = current + timedelta(days=7)
+        if next_date <= end_date:
+            date_list.append(next_date)
+        current = next_date
+    
+    # 마지막 날짜가 이미 포함되어 있지 않으면 추가
+    if end_date not in date_list:
+        date_list.append(end_date)
+    
+    return date_list
+
 def create_improved_dashboard(site_name, server_name, metrics_data, metrics_info, start_date, end_date, output_dir="output"):
     """
     개선된 대시보드 생성 (모든 메트릭을 한 화면에 표시)
@@ -110,6 +141,10 @@ def create_improved_dashboard(site_name, server_name, metrics_data, metrics_info
     start_date_display = datetime.strptime(start_date, '%Y%m%d').strftime('%Y.%m.%d')
     end_date_display = datetime.strptime(end_date, '%Y%m%d').strftime('%Y.%m.%d')
     
+    # 시작 날짜와 종료 날짜 객체
+    start_datetime = datetime.strptime(start_date, '%Y%m%d')
+    end_datetime = datetime.strptime(end_date, '%Y%m%d')
+    
     # 행과 열 계산 (2x3, 3x2, 2x2 등 그리드 형태로 배치)
     cols = min(3, num_metrics)
     rows = (num_metrics + cols - 1) // cols
@@ -127,6 +162,9 @@ def create_improved_dashboard(site_name, server_name, metrics_data, metrics_info
         axes = np.array([axes])
     elif rows == 1 or cols == 1:
         axes = axes.flatten()
+    
+    # 주간 간격으로 날짜 목록 생성
+    date_ticks = generate_date_ticks(start_datetime.date(), end_datetime.date())
     
     # 각 메트릭 데이터에 대해 서브플롯에 그래프 생성
     for i, metric_data in enumerate(metrics_data):
@@ -146,11 +184,20 @@ def create_improved_dashboard(site_name, server_name, metrics_data, metrics_info
             logger.warning(f"'{metric_name}' 메트릭의 데이터가 비어있습니다")
             continue
         
-        # 데이터프레임 생성
+        # 데이터프레임 생성 
         df = pd.DataFrame(data_points, columns=['timestamp', 'value'])
         
         # 타임스탬프를 datetime으로 변환 (밀리초 단위)
         df['datetime'] = df['timestamp'].apply(lambda x: datetime.fromtimestamp(x/1000))
+        
+        # 날짜 범위 확인 - 첫 날짜와 마지막 날짜가 요청한 범위와 일치하는지 확인
+        actual_start = df['datetime'].min()
+        actual_end = df['datetime'].max()
+        
+        # 데이터가 요청 범위보다 짧으면 로그 출력
+        if actual_start.date() > start_datetime.date() or actual_end.date() < end_datetime.date():
+            logger.warning(f"데이터 범위({actual_start.strftime('%Y-%m-%d')} ~ {actual_end.strftime('%Y-%m-%d')})가 " 
+                           f"요청 범위({start_datetime.strftime('%Y-%m-%d')} ~ {end_datetime.strftime('%Y-%m-%d')})와 다릅니다")
         
         # 현재 서브플롯 가져오기
         if rows > 1 and cols > 1:
@@ -186,21 +233,20 @@ def create_improved_dashboard(site_name, server_name, metrics_data, metrics_info
         ax.set_xlabel('시간', fontsize=10)
         ax.set_ylabel(f'{unit}' if unit else '값', fontsize=10)
         
-        # X축 날짜 표시 설정 - 데이터 기간에 따라 자동 조정
-        if date_range <= 7:  # 7일 이하: 매일 표시
-            ax.xaxis.set_major_locator(mdates.DayLocator())
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        elif date_range <= 31:  # 31일 이하: 일주일 간격
-            ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=1))
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        else:  # 31일 초과: 월 단위로 표시
-            ax.xaxis.set_major_locator(mdates.MonthLocator())
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        # X축 날짜 표시 설정 - 주간 간격으로 설정
+        # 주간 간격 날짜에 맞는 Locator 설정
+        days_to_show = [d.day for d in date_ticks]
         
-        # 보조 눈금 - 일별(주별) 구분선
-        if date_range <= 31:
-            ax.xaxis.set_minor_locator(mdates.DayLocator())
-            ax.grid(which='minor', axis='x', linestyle='-', alpha=0.1)
+        # X축 날짜 범위 수동 설정 (전체 기간을 명확히 표시)
+        ax.set_xlim(start_datetime.date(), end_datetime.date() + timedelta(days=1))  # 하루 추가하여 여백 생성
+        
+        # 커스텀 날짜 로케이터와 포맷터
+        ax.xaxis.set_major_locator(mdates.DayLocator(bymonthday=days_to_show))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        
+        # 모든 날짜에 보조 눈금 추가
+        ax.xaxis.set_minor_locator(mdates.DayLocator())
+        ax.grid(which='minor', axis='x', linestyle='-', alpha=0.1)
         
         # 그리드 추가 (밝은 색상으로)
         ax.grid(True, linestyle='--', alpha=0.3)
@@ -216,9 +262,33 @@ def create_improved_dashboard(site_name, server_name, metrics_data, metrics_info
                 # 다른 퍼센트 단위는 0-100 범위로 표시
                 ax.set_ylim(bottom=0, top=100)
         else:
-            # 바이트 등 다른 단위는 데이터 최댓값 기준으로 설정
-            max_value = df['value'].max()
-            ax.set_ylim(bottom=0, top=max_value * 1.1)  # 위쪽 10% 여유 공간
+            # 리샘플링된 데이터의 최소/최대값 기준으로 Y축 설정
+            if not df_resampled.empty:
+                min_value = df_resampled['value'].min()
+                max_value = df_resampled['value'].max()
+                
+                # 데이터 범위 계산
+                data_range = max_value - min_value
+                
+                # 최소/최대값이 같거나 범위가 매우 작은 경우 처리
+                if data_range < 0.001 or min_value == max_value:
+                    if max_value == 0:
+                        # 모든 값이 0인 경우
+                        ax.set_ylim(bottom=0, top=1)
+                    else:
+                        # 값이 모두 같은 경우, 값 주변에 범위 설정
+                        margin = max(max_value * 0.1, 0.1)
+                        ax.set_ylim(bottom=max(0, min_value - margin), 
+                                    top=max_value + margin)
+                else:
+                    # 일반적인 경우: 위아래로 10% 여유 공간 추가
+                    margin = data_range * 0.1
+                    ax.set_ylim(bottom=max(0, min_value - margin), 
+                                top=max_value + margin)
+            else:
+                # 리샘플링된 데이터가 없는 경우 원본 데이터 사용
+                max_value = df['value'].max()
+                ax.set_ylim(bottom=0, top=max_value * 1.1)  # 위쪽 10% 여유 공간
 
         # 축 레이블 간격 조정
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
@@ -279,6 +349,13 @@ def create_individual_metrics(site_name, server_name, metrics_data, metrics_info
     # 날짜 형식 변환 (표시용)
     start_date_display = datetime.strptime(start_date, '%Y%m%d').strftime('%Y.%m.%d')
     end_date_display = datetime.strptime(end_date, '%Y%m%d').strftime('%Y.%m.%d')
+    
+    # 시작 날짜와 종료 날짜 객체
+    start_datetime = datetime.strptime(start_date, '%Y%m%d')
+    end_datetime = datetime.strptime(end_date, '%Y%m%d')
+    
+    # 주간 간격으로 날짜 목록 생성
+    date_ticks = generate_date_ticks(start_datetime.date(), end_datetime.date())
     
     # 메트릭 정의 정보를 딕셔너리로 변환
     metrics_info_dict = {info.get('key'): info for info in metrics_info} if metrics_info else {}
@@ -348,22 +425,20 @@ def create_individual_metrics(site_name, server_name, metrics_data, metrics_info
         # 그래프 설정
         ax.set_xlabel('날짜', fontsize=10)
         ax.set_ylabel(f'{unit}' if unit else '값', fontsize=10)
+
+        # X축 날짜 표시 설정 - 주간 간격
+        days_to_show = [d.day for d in date_ticks]
         
-        # X축 날짜 표시 설정 - 데이터 기간에 따라 자동 조정
-        if date_range <= 7:  # 7일 이하: 매일 표시
-            ax.xaxis.set_major_locator(mdates.DayLocator())
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        elif date_range <= 31:  # 31일 이하: 일주일 간격
-            ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=1))
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        else:  # 31일 초과: 월 단위로 표시
-            ax.xaxis.set_major_locator(mdates.MonthLocator())
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        # X축 날짜 범위 수동 설정 (전체 기간을 명확히 표시)
+        ax.set_xlim(start_datetime.date(), end_datetime.date() + timedelta(days=1))  # 하루 추가하여 여백 생성
         
-        # 보조 눈금 - 일별(주별) 구분선
-        if date_range <= 31:
-            ax.xaxis.set_minor_locator(mdates.DayLocator())
-            ax.grid(which='minor', axis='x', linestyle='-', alpha=0.1)
+        # 커스텀 날짜 로케이터와 포맷터
+        ax.xaxis.set_major_locator(mdates.DayLocator(bymonthday=days_to_show))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        
+        # 모든 날짜에 보조 눈금 추가
+        ax.xaxis.set_minor_locator(mdates.DayLocator())
+        ax.grid(which='minor', axis='x', linestyle='-', alpha=0.1)
         
         # 그리드 추가 (밝은 색상으로)
         ax.grid(True, linestyle='--', alpha=0.3)
@@ -379,9 +454,33 @@ def create_individual_metrics(site_name, server_name, metrics_data, metrics_info
                 # 다른 퍼센트 단위는 0-100 범위로 표시
                 ax.set_ylim(bottom=0, top=100)
         else:
-            # 바이트 등 다른 단위는 데이터 최댓값 기준으로 설정
-            max_value = df['value'].max()
-            ax.set_ylim(bottom=0, top=max_value * 1.1)  # 위쪽 10% 여유 공간
+            # 리샘플링된 데이터의 최소/최대값 기준으로 Y축 설정
+            if not df_resampled.empty:
+                min_value = df_resampled['value'].min()
+                max_value = df_resampled['value'].max()
+                
+                # 데이터 범위 계산
+                data_range = max_value - min_value
+                
+                # 최소/최대값이 같거나 범위가 매우 작은 경우 처리
+                if data_range < 0.001 or min_value == max_value:
+                    if max_value == 0:
+                        # 모든 값이 0인 경우
+                        ax.set_ylim(bottom=0, top=1)
+                    else:
+                        # 값이 모두 같은 경우, 값 주변에 범위 설정
+                        margin = max(max_value * 0.1, 0.1)
+                        ax.set_ylim(bottom=max(0, min_value - margin), 
+                                    top=max_value + margin)
+                else:
+                    # 일반적인 경우: 위아래로 10% 여유 공간 추가
+                    margin = data_range * 0.1
+                    ax.set_ylim(bottom=max(0, min_value - margin), 
+                                top=max_value + margin)
+            else:
+                # 리샘플링된 데이터가 없는 경우 원본 데이터 사용
+                max_value = df['value'].max()
+                ax.set_ylim(bottom=0, top=max_value * 1.1)  # 위쪽 10% 여유 공간
         
         # 축 레이블 간격 조정
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
