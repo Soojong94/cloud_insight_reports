@@ -7,6 +7,7 @@ import json
 import requests
 from datetime import datetime, timedelta
 
+# modules/api/utils.py (일부)
 def make_signature(access_key, secret_key, method, uri):
     """
     네이버 클라우드 API 호출을 위한 서명 생성
@@ -16,6 +17,8 @@ def make_signature(access_key, secret_key, method, uri):
     
     secret_key_bytes = bytes(secret_key, 'UTF-8')
     
+    # 여기서 메서드와 URI만 사용하여 시그니처 생성
+    # 쿼리 파라미터는 포함하지 않음
     string_to_sign = method + " " + uri + "\n" + timestamp + "\n" + access_key
     string_to_sign_bytes = bytes(string_to_sign, 'UTF-8')
     
